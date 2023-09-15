@@ -8,22 +8,42 @@ date: "2023-09-13"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+0. Load packages
+```{r}
+library(dplyr)
+library(haven)
 ```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+0. Load data
+```{r}
+my_data<-read_dta("C:/Users/Ken/Documents/Github/HP-ARE213-Psets/Pset 1/pset1.dta")
 ```
+1a. Clean the missing values from cardiac to wgain. For cardiac, lung, diabetes, herpes, hydra, hemo, chyper, phyper, eclamp, incervix, pre4000, preterm, missing is encoded by 8 (not on certificate) and 9 (not classifiable). For tobacco and alcohol, missing is encoded by 9 (unknown). For cigar6, missing is given by 6 (unknown or not stated). For drink5, missing is given by 5 (unknown or not stated). For wgain, missing is given by 99 (unknown or not stated).
+```{r}
+#I need to tabulate these all still lol
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+#For variables that can take on 8 and 9
+cleanset1 <- c("cardiac", "lung", "diabetes", "herpes", "chyper", "phyper", "pre4000", "preterm")
+my_data <- my_data %>%
+  mutate(across(all_of(cleanset1), ~ifelse(. %in% c(8, 9), NA, .)))
+#check cardiac
+unique(my_data$cardiac)
+
+#For variables that only take on 9 as missing
+cleanset2 <- c("tobacco", "alcohol")
+my_data <- my_data %>%
+  mutate(across(all_of(cleanset2), ~na_if(., 9)))
+#check tobacco
+unique(my_data$tobacco)
+
+#For drink5
+my_data <- my_data %>%
+  mutate(drink5 = ifelse(drink5 == 5, NA, drink5))
+#check drink5
+unique(my_data$drink5)
+
+#For wgain
+my_data <- my_data %>%
+  mutate(wgain = ifelse(wgain == 99, NA, wgain))
+#check wgain
+unique(my_data$wgain)
+```
