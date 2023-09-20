@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(dplyr)
 library(haven)
+library(tidyr)
 ```
 0. Load data
 ```{r}
@@ -23,6 +24,7 @@ my_data<-read_dta("C:/Users/Ken/Documents/Github/HP-ARE213-Psets/Pset 1/pset1.dt
 
 #For variables that can take on 8 and 9
 cleanset1 <- c("cardiac", "lung", "diabetes", "herpes", "chyper", "phyper", "pre4000", "preterm")
+
 my_data <- my_data %>%
   mutate(across(all_of(cleanset1), ~ifelse(. %in% c(8, 9), NA, .)))
 #check cardiac
@@ -41,10 +43,68 @@ my_data <- my_data %>%
 #check drink5
 unique(my_data$drink5)
 
+#For cigar6
+my_data <- my_data %>%
+  mutate(cigar6 = ifelse(cigar6 == 6, NA, cigar6))
+#check drink5
+unique(my_data$cigar6)
+
 #For wgain
 my_data <- my_data %>%
   mutate(wgain = ifelse(wgain == 99, NA, wgain))
 #check wgain
 unique(my_data$wgain)
 ```
+1b.Recode all indicator variables. We see that rectype, pldel3, dmar, csex, anemia, cardiac, lung, diabetes, herpes, chyper, phyper, pre4000, preterm, tobacco, and alcohol are indicators.
+```{r}
+#Check which variables take on the form 1, 2, or missing
+sapply(my_data, function(x) all(x %in% c(1, 2, NA)))
+#Turn each indicator variable into the form 0 v 1 by mutating such that 2's become 0's.
+indicator_set <- c("rectype", "pldel3", "dmar", "csex", "anemia", "cardiac", "lung", "diabetes", "herpes", "chyper", "phyper", "pre4000", "preterm", "tobacco", "alcohol")
+for(var in indicator_set){
+my_data<-my_data %>%
+  mutate_at(var, funs(ifelse(.==2, 0, .)))
+}
+#Check if this works - everything should return false using our original check
+sapply(my_data, function(x) all(x %in% c(1, 2, NA)))
 
+```
+Next we recode the other variables as directed. 
+```{r}
+#Recode mrace3 as categorical variable (so a factor variable)
+class(my_data$mrace3) #starts off as numeric
+my_data<-my_data%>%mutate(mrace3 = factor(mrace3))
+#Check
+class(my_data$mrace3) #confirmed as factor
+
+#Coarsen ormoth and orfath into indicator variables. 
+unique(my_data$ormoth)
+unique(my_data$orfath)
+my_data<-my_data%>% mutate(ormoth = ifelse(ormoth > 1, 1, ormoth),
+                           orfath = ifelse(orfath > 1, 1, orfath))
+#Check
+unique(my_data$ormoth)
+unique(my_data$orfath)
+
+#Drop stresfip, birmon, and weekday
+unique(my_data$stresfip) #Could convert this into a regional variable
+unique(my_data$birmon) #Could turn this into a quarter?
+unique(my_data$weekday) #could treat like a weekday vs weekend binary variable
+#Now I drop them.
+my_data<-my_data%>% select(-c(stresfip, birmon, weekday))
+```
+1c. Produce the analysis data set. It has the desired set of variables.
+```{r}
+my_data<-drop_na(my_data)
+```
+The naniar library has a neat little MCAR test function that runs Little's test whether data is missing completely at random. It appears like it fulfills the MCAR assumption. 
+```{r}
+library(naniar)
+mcar_test(my_data)
+```
+1d. 
+I use the stargazer function to create an overall table
+```{r}
+library(stargazer)
+stargazer(as.data.frame(my_data), type = "text", summary = TRUE)
+```
