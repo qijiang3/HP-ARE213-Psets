@@ -103,8 +103,111 @@ library(naniar)
 mcar_test(my_data)
 ```
 1d. 
-I use the stargazer function to create an overall table
+I use the stargazer function to create an overall table, then dplyr to get tobacco and non-tobacco datasets to get different spltis
 ```{r}
 library(stargazer)
 stargazer(as.data.frame(my_data), type = "text", summary = TRUE)
+#We then split out the data
+tobacco_data<-my_data%>%filter(tobacco==1)%>%select(-tobacco)
+stargazer(as.data.frame(tobacco_data), type = "text", summary = TRUE)
+notobacco_data<-my_data%>%filter(tobacco==0)%>%select(-tobacco)
+stargazer(as.data.frame(notobacco_data), type = "text", summary = TRUE)
+```
+
+Q2. Our goal will be to analyze the causal effects of maternal smoking during pregnancy on infant birth weight.
+a. Compute the mean difference in birthweight in grams by smoking status. Is this difference likely to be causal? Provide some evidence for or against.
+```{r}
+#One way to do this is via the aggregate() function:
+mean_diff<-my_data%>%aggregate(dbrwt~tobacco, FUN = mean)
+mean_diff
+
+#If we want to t-test, we can split it out into two different datasets then use the t.test command
+nonsmokers<-my_data%>%filter(tobacco==0)%>%select(dbrwt)
+smokers<-my_data%>%filter(tobacco==1)%>%select(dbrwt)
+dbrwt_test<-t.test(nonsmokers, smokers)
+dbrwt_test
+```
+There is a statistically significant difference across smoking vs nonsmoking mothers in terms of mean birthweight. This is unlikely to be causal given the presence of several different confounders in the dataset. For example, an impoverished mother may smoke more as a stress response and may be unable to invest time and money into practices and resources that would yield a healthier birth - this is one such example in which this mean estimate would not be causal. 
+
+b. Classify the variables in the dataset into different types depending on how they are potentially related to the treatment and the outcome; justify your choices and be explicit about the assumptions you are making.4 Use your classification to decide on the list of covariates you’ll keep for covariate adjustment for the rest of the problem set.
+```{r}
+#Based on the above, we can generate a new object that has our outcome and all covariates
+test_data<-my_data%>%select(tobacco, ormoth, mrace3, dmage, dmeduc, nlbnl, dlivord, totord9, dfage, orfath, dfeduc, pre4000, preterm, nprevist, isllb10)
+```
+
+3. We will now investigate different methods based for covariate adjustment, starting from regression.
+a. Use a basic, uninteracted linear regression model to estimate the impact of smoking and report your estimates. Under what circumstances does it identify the average treatment effect (ATE)?
+```{r}
+
+```
+b. Is the estimate in the previous question sensitive to dropping controls one at a time? What do you learn from this exercise?
+```{r}
+
+```
+c. For this part only, extend the OLS specification from question 3(a) to control for
+the covariates using a more flexible functional form. Describe the specification
+you picked. What are the potential benefits and drawbacks of this approach?
+```{r}
+
+```
+d.For this part only, add to the specification of question 3(a) some “bad controls.”
+Check if your estimate changes and discuss the direction of the change.
+```{r}
+
+```
+e. Produce the Oaxaca-Blinder estimator for the ATE and ATT. Describe the exact
+steps you have used. Does your answer differ substantially from the one in 3(a)?
+Discuss.
+```{r}
+
+```
+4. Next on the list is the propensity score approach.
+a.Estimate the propensity score using a logit specification without nonlinear terms
+and interactions. Discuss which covariates appear most predictive of maternal
+smoking and whether this matches your expectation.
+```{r}
+
+```
+b. How good is the overlap of propensity scores between the treated and untreated
+groups?
+```{r}
+
+```
+c.Assess whether this logit specification has been sufficient to balance the covariates.
+```{r}
+
+```
+d. Estimate the ATE and ATT via propensity score blocking or matching
+```{r}
+
+```
+e. Estimate the ATE and ATT via propensity score reweighting. Include the formulas you used.
+```{r}
+
+```
+5. Finally, try doubly-robust methods
+a. Estimate the ATE and ATT using one the “mixed methods”: regression adjustment
+combined with propensity score blocking, matching, or 
+```{r}
+
+```
+b. Assuming constant effects,7 estimate the causal effect using post-doubleselection
+LASSO. Use flexible specifications with some polynomials and interaction
+terms. (Defining these nonlinear terms — “feature engineering” — for
+the use in LASSO may require some thinking.) How many covariates did you
+start with? How many were selected by LASSO in the outcome regression?
+How many in the propensity score regression? How many overlapped? In this
+application, would you get a very different answer if you didn’t include the
+covariates chosen in the propensity score regression?
+```{r}
+
+```
+
+6. Compare the estimates and standard errors between regression adjustment methods,
+propensity score methods, and doubly robust methods you have used. Concisely and
+coherently summarize your results above providing some intuition. Write it like you
+would the conclusion of a paper. In this summary, describe whether you think your
+best estimate of the effects of smoking is credibly identified; state why or why not.
+```{r}
+
 ```
