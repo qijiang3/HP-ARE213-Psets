@@ -132,46 +132,91 @@ There is a statistically significant difference across smoking vs nonsmoking mot
 b. Classify the variables in the dataset into different types depending on how they are potentially related to the treatment and the outcome; justify your choices and be explicit about the assumptions you are making.4 Use your classification to decide on the list of covariates you’ll keep for covariate adjustment for the rest of the problem set.
 ```{r}
 #Based on the above, we can generate a new object that has our outcome and all covariates
-test_data<-my_data%>%select(tobacco, ormoth, mrace3, dmage, dmeduc, nlbnl, dlivord, totord9, dfage, orfath, dfeduc, pre4000, preterm, nprevist, isllb10)
+test_data<-my_data%>%select(dbrwt, tobacco, ormoth, mrace3, dmage, dmeduc, nlbnl, dlivord, totord9, dfage, orfath, dfeduc, pre4000, preterm, nprevist, isllb10)
 ```
 
 3. We will now investigate different methods based for covariate adjustment, starting from regression.
 a. Use a basic, uninteracted linear regression model to estimate the impact of smoking and report your estimates. Under what circumstances does it identify the average treatment effect (ATE)?
 ```{r}
-
+model1<-lm(dbrwt~tobacco+ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, test_data)
+model1
 ```
 b. Is the estimate in the previous question sensitive to dropping controls one at a time? What do you learn from this exercise?
 ```{r}
+#without ormoth
+model1b<-lm(dbrwt~tobacco+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, test_data)
+#without mrace3
+model2b<-lm(dbrwt~tobacco+ormoth+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, test_data)
+#without dmage
+model3b<-lm(dbrwt~tobacco+ormoth+mrace3+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, test_data)
+#without dmeduc
+model4b<-lm(dbrwt~tobacco+ormoth+mrace3+dmage+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, test_data)
 
 ```
-c. For this part only, extend the OLS specification from question 3(a) to control for
-the covariates using a more flexible functional form. Describe the specification
-you picked. What are the potential benefits and drawbacks of this approach?
+c. For this part only, extend the OLS specification from question 3(a) to control for the covariates using a more flexible functional form. Describe the specification you picked. What are the potential benefits and drawbacks of this approach?
 ```{r}
-
+#let's use the spline package
+library(splines2)
 ```
 d.For this part only, add to the specification of question 3(a) some “bad controls.”
 Check if your estimate changes and discuss the direction of the change.
 ```{r}
+#adding in herpes, cntocpop, adequacy, and monpre
+model3d<-lm(dbrwt~tobacco+ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10+herpes+cntocpop+adequacy+monpre, test_data)
 
 ```
 e. Produce the Oaxaca-Blinder estimator for the ATE and ATT. Describe the exact
 steps you have used. Does your answer differ substantially from the one in 3(a)?
 Discuss.
 ```{r}
+#First split the dataset by the exposure (tobacco)
+nonsmokers<-test_data%>%filter(tobacco==0)
+smokers<-test_data%>%filter(tobacco==1)
 
+#Next get the model results for each
+nonsmokers_model<-lm(tobacco~., nonsmokers)
+smokers_model<-lm(tobacco~., smokers)
+
+#Predict each
+nonsmokers_predict<-predict(nonsmokers_model)
+smokers_predict<-predict(smokers_model)
+
+#First get ATE using these predicted values
+ATE <- mean(smokers_predict) - mean(nonsmokers_predict)
+
+#Next get ATT
+ATT <- mean(smokers$dbrwt - smokers_predict) - mean(nonsmokers$dbrwt - nonsmokers_predict)
+
+#Do I need p-value?
 ```
 4. Next on the list is the propensity score approach.
-a.Estimate the propensity score using a logit specification without nonlinear terms
-and interactions. Discuss which covariates appear most predictive of maternal
-smoking and whether this matches your expectation.
+a.Estimate the propensity score using a logit specification without nonlinear terms and interactions. Discuss which covariates appear most predictive of maternal smoking and whether this matches your expectation.
 ```{r}
-
+pscore_model<-glm(tobacco~ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, family = binomial(link = "logit"), test_data)
+pscore<-predict(pscore_model, type="response")
 ```
-b. How good is the overlap of propensity scores between the treated and untreated
-groups?
+b. How good is the overlap of propensity scores between the treated and untreated groups?
 ```{r}
+#Separate out the propensity 
+smoker_propensity_scores <- pscore[test_data$tobacco == 1]
+nonsmoker_propensity_scores <- pscore[test_data$tobacco == 0]
 
+#Get plot for overlap
+library(ggplot2)
+
+plot_data <- data.frame(
+  pscores = c(smoker_propensity_scores, nonsmoker_propensity_scores),
+  treatment = factor(rep(c("Smokers", "Nonsmokers"), each = length(pscore)))
+)
+
+ggplot(plot_data, aes(x = pscores, fill = treatment)) +
+  geom_density(alpha = 0.5) +
+  labs(x = "propensity scores", y = "density") +
+  scale_fill_manual(values = c("red", "blue")) +
+  facet_wrap(~ treatment, scales = "free_y") +
+  theme_minimal()
+
+q4bplot
 ```
 c.Assess whether this logit specification has been sufficient to balance the covariates.
 ```{r}
@@ -179,15 +224,37 @@ c.Assess whether this logit specification has been sufficient to balance the cov
 ```
 d. Estimate the ATE and ATT via propensity score blocking or matching
 ```{r}
+#load the MatchIt package
+library(MatchIt)
 
+#get a dataset to identify match
+match_data<-data.frame(smoking=test_data$tobacco, pscores=pscore, birthweight=test_data$dbrwt)
+
+#next run the match via the matchit command- picking nearest neighbor
+match_data<-matchit(smoking ~ pscores, data=match_data, method="nearest")
+match_data<-match.data(match_data) #syntax is clumsy here - sorry!
+
+#next get the ATE and ATT
+q4dATE <- mean(match_data$birthweight[match_data$smoking == 1] - match_data$birthweight[match_data$smoking == 0])
+q4dATT <- mean(match_data$birthweight[match_data$smoking == 1])
 ```
 e. Estimate the ATE and ATT via propensity score reweighting. Include the formulas you used.
 ```{r}
+#Use the WeightIt package
+library(WeightIt)
 
+weight_data<-weightit(tobacco~ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, test_data, method="ps")
+
+#reweighting
+weights<-weights(weight_data)
+
+#get overall mean
+q4eOverallMean <- weighted.mean(test_data$dbrwt, w = weights)
+q4eATT<-weighted.mean(test_data$dbrwt[test_data$tobacco == 1], w = weights[test_data$tobacco == 1])
+q4eATE<-q4eOverallMean-q4eATT
 ```
 5. Finally, try doubly-robust methods
-a. Estimate the ATE and ATT using one the “mixed methods”: regression adjustment
-combined with propensity score blocking, matching, or 
+a. Estimate the ATE and ATT using one the “mixed methods”: regression adjustment combined with propensity score blocking, matching, or reweighting.
 ```{r}
 
 ```
