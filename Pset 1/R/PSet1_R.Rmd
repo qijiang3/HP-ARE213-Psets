@@ -16,7 +16,11 @@ library(tidyr)
 ```
 0. Load data
 ```{r}
-my_data<-read_dta("C:/Users/Ken/Documents/Github/HP-ARE213-Psets/Pset 1/pset1.dta")
+#on PC
+#my_data<-read_dta("C:/Users/Ken/Documents/Github/HP-ARE213-Psets/Pset 1/pset1.dta")
+
+#On Mac
+my_data<-read_dta("/Users/alexadia/Documents/GitHub/HP-ARE213-Psets/Pset 1/pset1.dta")
 ```
 1a. Clean the missing values from cardiac to wgain. For cardiac, lung, diabetes, herpes, hydra, hemo, chyper, phyper, eclamp, incervix, pre4000, preterm, missing is encoded by 8 (not on certificate) and 9 (not classifiable). For tobacco and alcohol, missing is encoded by 9 (unknown). For cigar6, missing is given by 6 (unknown or not stated). For drink5, missing is given by 5 (unknown or not stated). For wgain, missing is given by 99 (unknown or not stated).
 ```{r}
@@ -256,25 +260,38 @@ q4eATE<-q4eOverallMean-q4eATT
 5. Finally, try doubly-robust methods
 a. Estimate the ATE and ATT using one the “mixed methods”: regression adjustment combined with propensity score blocking, matching, or reweighting.
 ```{r}
+#re-run the pscore match
+pscore_model<-glm(tobacco~ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, family = binomial(link = "logit"), test_data)
+pscore<-predict(pscore_model, type="response")
 
+#use matchit to get matched
+match_data<-matchit(tobacco ~ pscore, data=test_data, method="nearest")
+match_data<-match.data(match_data) #syntax is clumsy here - sorry!
+
+#next rerun regression
+doublyrobust_model<-lm(dbrwt~tobacco+ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, match_data)
+doublyrobust_coefs<-coef(doublyrobust_model)
+
+#doubly robust ATE
+doublyrobust_ATE <- doublyrobust_coefs["tobacco"]
+doublyrobust_ATT<- mean(match_data$dbrwt[match_data$tobacco == 1]) - mean(match_data$dbrwt[match_data$tobacco == 0])
 ```
-b. Assuming constant effects,7 estimate the causal effect using post-doubleselection
-LASSO. Use flexible specifications with some polynomials and interaction
-terms. (Defining these nonlinear terms — “feature engineering” — for
-the use in LASSO may require some thinking.) How many covariates did you
-start with? How many were selected by LASSO in the outcome regression?
-How many in the propensity score regression? How many overlapped? In this
-application, would you get a very different answer if you didn’t include the
-covariates chosen in the propensity score regression?
+b. Assuming constant effects,7 estimate the causal effect using post-double selection LASSO. Use flexible specifications with some polynomials and interaction terms. (Defining these nonlinear terms — “feature engineering” — for the use in LASSO may require some thinking.) How many covariates did you start with? How many were selected by LASSO in the outcome regression? How many in the propensity score regression? How many overlapped? In this application, would you get a very different answer if you didn’t include the covariates chosen in the propensity score regression?
 ```{r}
+#load glmnet and hdm
+library(hdm)
+library(glmnet)
+
+#Perform feature engineering (dplyr mutate etc etc)
+lasso_data<-test_data%>%mutate()
+
+#Split into outcome and exposure
+q5Y<-lasso_data%>%select(dbrwt)
+q5X<-lasso_data%>%select(-dbrwt)
 
 ```
 
-6. Compare the estimates and standard errors between regression adjustment methods,
-propensity score methods, and doubly robust methods you have used. Concisely and
-coherently summarize your results above providing some intuition. Write it like you
-would the conclusion of a paper. In this summary, describe whether you think your
-best estimate of the effects of smoking is credibly identified; state why or why not.
+6. Compare the estimates and standard errors between regression adjustment methods, propensity score methods, and doubly robust methods you have used. Concisely and coherently summarize your results above providing some intuition. Write it like you would the conclusion of a paper. In this summary, describe whether you think your best estimate of the effects of smoking is credibly identified; state why or why not.
 ```{r}
 
 ```
