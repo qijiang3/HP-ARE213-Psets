@@ -259,9 +259,10 @@ weight_data<-weightit(tobacco~ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+d
 weights<-weights(weight_data)
 
 #get overall mean - correct this
-q4eOverallMean <- weighted.mean(test_data$dbrwt, w = weights)
-q4eATT<-weighted.mean(test_data$dbrwt[test_data$tobacco == 1], w = weights[test_data$tobacco == 1])
-q4eATE<-q4eOverallMean-q4eATT
+q4eATE <- weighted.mean(test_data$dbrwt[test_data$tobacco == 1], w = weights[test_data$tobacco == 1])- weighted.mean(test_data$dbrwt[test_data$tobacco == 0], w = weights[test_data$tobacco == 0])
+
+#Next get ATT
+q4eATT <- mean(smokers$dbrwt - smokers_predict)
 ```
 5. Finally, try doubly-robust methods
 a. Estimate the ATE and ATT using one the “mixed methods”: regression adjustment combined with propensity score blocking, matching, or reweighting.
