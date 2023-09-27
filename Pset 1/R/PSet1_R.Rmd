@@ -166,12 +166,10 @@ d.For this part only, add to the specification of question 3(a) some “bad cont
 Check if your estimate changes and discuss the direction of the change.
 ```{r}
 #adding in herpes, cntocpop, adequacy, and monpre
-model3d<-lm(dbrwt~tobacco+ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10+herpes+cntocpop+adequacy+monpre, test_data)
+model3d<-lm(dbrwt~tobacco+ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10+herpes+cntocpop+adequacy+monpre, my_data)
 
 ```
-e. Produce the Oaxaca-Blinder estimator for the ATE and ATT. Describe the exact
-steps you have used. Does your answer differ substantially from the one in 3(a)?
-Discuss.
+e. Produce the Oaxaca-Blinder estimator for the ATE and ATT. Describe the exact steps you have used. Does your answer differ substantially from the one in 3(a)? Discuss. (AA Note: unclear if proper method - group by tobacco with the oaxaca package?)
 ```{r}
 #First split the dataset by the exposure (tobacco)
 nonsmokers<-test_data%>%filter(tobacco==0)
@@ -192,11 +190,18 @@ ATE <- mean(smokers_predict) - mean(nonsmokers_predict)
 ATT <- mean(smokers$dbrwt - smokers_predict) - mean(nonsmokers$dbrwt - nonsmokers_predict)
 
 #Do I need p-value?
+
+#oaxaca package given team feedback on what this should be like
+oaxaca_results <- oaxaca(dbrwt ~ ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10 | tobacco, test_data)
+#get ATE and  ATT - not sure how to do that
+q3eATE<-oaxaca_results$reg$reg.pooled.2$tobacco
 ```
 4. Next on the list is the propensity score approach.
 a.Estimate the propensity score using a logit specification without nonlinear terms and interactions. Discuss which covariates appear most predictive of maternal smoking and whether this matches your expectation.
 ```{r}
+#Run logit specification
 pscore_model<-glm(tobacco~ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, family = binomial(link = "logit"), test_data)
+#predict outputs from the model to get the propensity score
 pscore<-predict(pscore_model, type="response")
 ```
 b. How good is the overlap of propensity scores between the treated and untreated groups?
@@ -286,8 +291,20 @@ library(glmnet)
 lasso_data<-test_data%>%mutate()
 
 #Split into outcome and exposure
-q5Y<-lasso_data%>%select(dbrwt)
-q5X<-lasso_data%>%select(-dbrwt)
+q5y<-lasso_data%>%select(dbrwt)
+q5x<-lasso_data%>%select(-dbrwt)
+
+#use hdm's double selection command
+select_vars<-double_selection(q5x, q5y)
+selectX<-which(select_vars)
+selectX<-q5x[, selectX]
+
+#run glmnet to get best value for lambda
+lasso_model<-cv.glmnet(selectX, q5y, alpha=1)
+best_lambda<-lasso_model$lambda.min
+
+#fit model with best lambda
+best_lasso<-glmnet(selectX, q5y, alpha=1, lambda=best_lambda)
 
 ```
 
