@@ -98,13 +98,14 @@ unique(my_data$weekday) #could treat like a weekday vs weekend binary variable
 my_data<-my_data%>% select(-c(stresfip, birmon, weekday))
 ```
 1c. Produce the analysis data set. It has the desired set of variables.
-```{r}
-my_data<-drop_na(my_data)
-```
 The naniar library has a neat little MCAR test function that runs Little's test whether data is missing completely at random. It appears like it fulfills the MCAR assumption. 
 ```{r}
 library(naniar)
 mcar_test(my_data)
+```
+Then I drop all things
+```{r}
+my_data<-drop_na(my_data)
 ```
 1d. 
 I use the stargazer function to create an overall table, then dplyr to get tobacco and non-tobacco datasets to get different spltis
@@ -159,8 +160,7 @@ model4b<-lm(dbrwt~tobacco+ormoth+mrace3+dmage+nlbnl+dlivord+totord9+dfage+orfath
 ```
 c. For this part only, extend the OLS specification from question 3(a) to control for the covariates using a more flexible functional form. Describe the specification you picked. What are the potential benefits and drawbacks of this approach?
 ```{r}
-#let's use the spline package
-library(splines2)
+#interact everything
 ```
 d.For this part only, add to the specification of question 3(a) some “bad controls.”
 Check if your estimate changes and discuss the direction of the change.
@@ -176,21 +176,20 @@ nonsmokers<-test_data%>%filter(tobacco==0)
 smokers<-test_data%>%filter(tobacco==1)
 
 #Next get the model results for each
-nonsmokers_model<-lm(tobacco~., nonsmokers)
-smokers_model<-lm(tobacco~., smokers)
+nonsmokers_model<-lm(dbrwt~., nonsmokers)
+smokers_model<-lm(dbrwt~., smokers)
 
 #Predict each
 nonsmokers_predict<-predict(nonsmokers_model)
 smokers_predict<-predict(smokers_model)
 
 #First get ATE using these predicted values
-ATE <- mean(smokers_predict) - mean(nonsmokers_predict)
+q3eATE <- mean(smokers_predict) - mean(nonsmokers_predict)
 
 #Next get ATT
-ATT <- mean(smokers$dbrwt - smokers_predict) - mean(nonsmokers$dbrwt - nonsmokers_predict)
+q3eATT <- mean(smokers$dbrwt - smokers_predict)
 
-#Do I need p-value?
-
+library(oaxaca)
 #oaxaca package given team feedback on what this should be like
 oaxaca_results <- oaxaca(dbrwt ~ ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10 | tobacco, test_data)
 #get ATE and  ATT - not sure how to do that
@@ -213,9 +212,11 @@ nonsmoker_propensity_scores <- pscore[test_data$tobacco == 0]
 #Get plot for overlap
 library(ggplot2)
 
+treatment_factor <- factor(rep(c("Smokers", "Nonsmokers"), times = c(length(smoker_propensity_scores), length(nonsmoker_propensity_scores))))
+
 plot_data <- data.frame(
   pscores = c(smoker_propensity_scores, nonsmoker_propensity_scores),
-  treatment = factor(rep(c("Smokers", "Nonsmokers"), each = length(pscore)))
+  treatment = treatment_factor
 )
 
 ggplot(plot_data, aes(x = pscores, fill = treatment)) +
@@ -257,7 +258,7 @@ weight_data<-weightit(tobacco~ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+d
 #reweighting
 weights<-weights(weight_data)
 
-#get overall mean
+#get overall mean - correct this
 q4eOverallMean <- weighted.mean(test_data$dbrwt, w = weights)
 q4eATT<-weighted.mean(test_data$dbrwt[test_data$tobacco == 1], w = weights[test_data$tobacco == 1])
 q4eATE<-q4eOverallMean-q4eATT
