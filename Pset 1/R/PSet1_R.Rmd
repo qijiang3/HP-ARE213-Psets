@@ -163,14 +163,22 @@ model3b5<-lm(dbrwt ~ tobacco + ormoth + dmage + dmeduc + monpre + csex + dplural
 ```
 c. For this part only, extend the OLS specification from question 3(a) to control for the covariates using a more flexible functional form. Describe the specification you picked. What are the potential benefits and drawbacks of this approach?
 ```{r}
-#interact everything
+#With interactions across all other covariates
+model3c <- lm(dbrwt ~ (tobacco + ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper)^2, data = test_data)
+model3c
+
+#with interactions across only tobacco (what I saw in Jackee's code)
+model3c <- lm(dbrwt ~ tobacco + ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper + tobacco:ormoth + tobacco:mrace3 + tobacco:dmage + tobacco:dmeduc + tobacco:dmar + tobacco:adequacy + tobacco:monpre + tobacco:nprevist + tobacco:isllb10 + tobacco:csex + tobacco:dplural + tobacco:anemia + tobacco:cardiac + tobacco:lung + tobacco:diabetes + tobacco:herpes + tobacco:chyper + tobacco:phyper, data = test_data)
+model3c
+
 ```
 d.For this part only, add to the specification of question 3(a) some “bad controls.”
 Check if your estimate changes and discuss the direction of the change.
 ```{r}
-#adding in herpes, cntocpop, adequacy, and monpre
-model3d<-lm(dbrwt~tobacco+ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10+herpes+cntocpop+adequacy+monpre, my_data)
+#Re-select test data to include things we want 
+bad_control_data<-my_data%>%select(dbrwt, tobacco, ormoth, mrace3, dmage, dmeduc, dmar,adequacy, monpre, nprevist, isllb10, csex, dplural, anemia, cardiac, lung, diabetes, herpes, chyper, phyper, dgestat)
 
+model3d<-lm(dbrwt ~ tobacco + ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper+dgestat, bad_control_data)
 ```
 e. Produce the Oaxaca-Blinder estimator for the ATE and ATT. Describe the exact steps you have used. Does your answer differ substantially from the one in 3(a)? Discuss. (AA Note: unclear if proper method - group by tobacco with the oaxaca package?)
 ```{r}
@@ -202,7 +210,7 @@ q3eATE<-oaxaca_results$reg$reg.pooled.2$tobacco
 a.Estimate the propensity score using a logit specification without nonlinear terms and interactions. Discuss which covariates appear most predictive of maternal smoking and whether this matches your expectation.
 ```{r}
 #Run logit specification
-pscore_model<-glm(tobacco~ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, family = binomial(link = "logit"), test_data)
+pscore_model<-glm(tobacco~ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper, family = binomial(link = "logit"), test_data)
 #predict outputs from the model to get the propensity score
 pscore<-predict(pscore_model, type="response")
 ```
@@ -257,7 +265,7 @@ e. Estimate the ATE and ATT via propensity score reweighting. Include the formul
 #Use the WeightIt package
 library(WeightIt)
 
-weight_data<-weightit(tobacco~ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, test_data, method="ps")
+weight_data<-weightit(tobacco~ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper, test_data, method="ps")
 
 #reweighting
 weights<-weights(weight_data)
@@ -272,7 +280,7 @@ q4eATT <- mean(smokers$dbrwt - smokers_predict)
 a. Estimate the ATE and ATT using one the “mixed methods”: regression adjustment combined with propensity score blocking, matching, or reweighting.
 ```{r}
 #re-run the pscore match
-pscore_model<-glm(tobacco~ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, family = binomial(link = "logit"), test_data)
+pscore_model<-glm(tobacco~ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper, family = binomial(link = "logit"), test_data)
 pscore<-predict(pscore_model, type="response")
 
 #use matchit to get matched
@@ -280,7 +288,7 @@ match_data<-matchit(tobacco ~ pscore, data=test_data, method="nearest")
 match_data<-match.data(match_data) #syntax is clumsy here - sorry!
 
 #next rerun regression
-doublyrobust_model<-lm(dbrwt~tobacco+ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, match_data)
+doublyrobust_model<-lm(dbrwt~tobacco + ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper, match_data)
 doublyrobust_coefs<-coef(doublyrobust_model)
 
 #doubly robust ATE
