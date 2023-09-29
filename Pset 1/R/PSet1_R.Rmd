@@ -17,10 +17,10 @@ library(tidyr)
 0. Load data
 ```{r}
 #on PC
-#my_data<-read_dta("C:/Users/Ken/Documents/Github/HP-ARE213-Psets/Pset 1/pset1.dta")
+my_data<-read_dta("C:/Users/Ken/Documents/Github/HP-ARE213-Psets/Pset 1/pset1.dta")
 
 #On Mac
-my_data<-read_dta("/Users/alexadia/Documents/GitHub/HP-ARE213-Psets/Pset 1/pset1.dta")
+#my_data<-read_dta("/Users/alexadia/Documents/GitHub/HP-ARE213-Psets/Pset 1/pset1.dta")
 ```
 1a. Clean the missing values from cardiac to wgain. For cardiac, lung, diabetes, herpes, hydra, hemo, chyper, phyper, eclamp, incervix, pre4000, preterm, missing is encoded by 8 (not on certificate) and 9 (not classifiable). For tobacco and alcohol, missing is encoded by 9 (unknown). For cigar6, missing is given by 6 (unknown or not stated). For drink5, missing is given by 5 (unknown or not stated). For wgain, missing is given by 99 (unknown or not stated).
 ```{r}
