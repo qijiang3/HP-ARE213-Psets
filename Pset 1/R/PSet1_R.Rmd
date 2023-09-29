@@ -137,26 +137,29 @@ There is a statistically significant difference across smoking vs nonsmoking mot
 b. Classify the variables in the dataset into different types depending on how they are potentially related to the treatment and the outcome; justify your choices and be explicit about the assumptions you are making.4 Use your classification to decide on the list of covariates you’ll keep for covariate adjustment for the rest of the problem set.
 ```{r}
 #Based on the above, we can generate a new object that has our outcome and all covariates
-test_data<-my_data%>%select(dbrwt, tobacco, ormoth, mrace3, dmage, dmeduc, nlbnl, dlivord, totord9, dfage, orfath, dfeduc, pre4000, preterm, nprevist, isllb10)
+test_data<-my_data%>%select(dbrwt, tobacco, ormoth, mrace3, dmage, dmeduc, dmar,adequacy, monpre, nprevist, isllb10, csex, dplural, anemia, cardiac, lung, diabetes, herpes, chyper, phyper, dgestat)
 ```
 
 3. We will now investigate different methods based for covariate adjustment, starting from regression.
 a. Use a basic, uninteracted linear regression model to estimate the impact of smoking and report your estimates. Under what circumstances does it identify the average treatment effect (ATE)?
 ```{r}
-model1<-lm(dbrwt~tobacco+ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, test_data)
-model1
+model3a<-lm(dbrwt ~ tobacco + ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper, test_data)
+model3a
 ```
 b. Is the estimate in the previous question sensitive to dropping controls one at a time? What do you learn from this exercise?
 ```{r}
-#without ormoth
-model1b<-lm(dbrwt~tobacco+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, test_data)
-#without mrace3
-model2b<-lm(dbrwt~tobacco+ormoth+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, test_data)
-#without dmage
-model3b<-lm(dbrwt~tobacco+ormoth+mrace3+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, test_data)
-#without dmeduc
-model4b<-lm(dbrwt~tobacco+ormoth+mrace3+dmage+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10, test_data)
-
+#without phyper
+model3b1<-lm(dbrwt ~ tobacco + ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper, test_data)
+#without phyper and dmar
+model3b2<-lm(dbrwt ~ tobacco + ormoth + mrace3 + dmage + dmeduc + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper, test_data)
+#without phyper, dmar, and adequacy
+model3b3<-lm(dbrwt ~ tobacco + ormoth + mrace3 + dmage + dmeduc + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper, test_data)
+#without phyper, dmar, adequacy, and mrace3
+model3b4<-lm(dbrwt ~ tobacco + ormoth + dmage + dmeduc + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper, test_data)
+#without phyper, dmar, adequacy, mrace3, and nprevisit
+model3b5<-lm(dbrwt ~ tobacco + ormoth + dmage + dmeduc + monpre + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper, test_data)
+#without phyper, dmar, adequacy, mrace3, nprevisit, and isllb10
+model3b5<-lm(dbrwt ~ tobacco + ormoth + dmage + dmeduc + monpre + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper, test_data)
 ```
 c. For this part only, extend the OLS specification from question 3(a) to control for the covariates using a more flexible functional form. Describe the specification you picked. What are the potential benefits and drawbacks of this approach?
 ```{r}
@@ -212,6 +215,7 @@ nonsmoker_propensity_scores <- pscore[test_data$tobacco == 0]
 #Get plot for overlap
 library(ggplot2)
 
+#For the plot, get everything a factor variable for the pscores by each treatment arm
 treatment_factor <- factor(rep(c("Smokers", "Nonsmokers"), times = c(length(smoker_propensity_scores), length(nonsmoker_propensity_scores))))
 
 plot_data <- data.frame(
@@ -219,11 +223,11 @@ plot_data <- data.frame(
   treatment = treatment_factor
 )
 
-ggplot(plot_data, aes(x = pscores, fill = treatment)) +
-  geom_density(alpha = 0.5) +
+#Get plots that overlap
+q4bplot<-ggplot(plot_data, aes(x = pscores, fill = treatment)) +
+  geom_histogram(alpha = 0.5) +
   labs(x = "propensity scores", y = "density") +
   scale_fill_manual(values = c("red", "blue")) +
-  facet_wrap(~ treatment, scales = "free_y") +
   theme_minimal()
 
 q4bplot
