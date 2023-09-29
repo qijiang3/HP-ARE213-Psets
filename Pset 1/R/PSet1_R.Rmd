@@ -295,18 +295,34 @@ doublyrobust_coefs<-coef(doublyrobust_model)
 doublyrobust_ATE <- doublyrobust_coefs["tobacco"]
 doublyrobust_ATT<- mean(match_data$dbrwt[match_data$tobacco == 1]) - mean(match_data$dbrwt[match_data$tobacco == 0])
 ```
-b. Assuming constant effects,7 estimate the causal effect using post-double selection LASSO. Use flexible specifications with some polynomials and interaction terms. (Defining these nonlinear terms — “feature engineering” — for the use in LASSO may require some thinking.) How many covariates did you start with? How many were selected by LASSO in the outcome regression? How many in the propensity score regression? How many overlapped? In this application, would you get a very different answer if you didn’t include the covariates chosen in the propensity score regression?
+b. Assuming constant effects, estimate the causal effect using post-double selection LASSO. Use flexible specifications with some polynomials and interaction terms. (Defining these nonlinear terms — “feature engineering” — for the use in LASSO may require some thinking.) How many covariates did you start with? How many were selected by LASSO in the outcome regression? How many in the propensity score regression? How many overlapped? In this application, would you get a very different answer if you didn’t include the covariates chosen in the propensity score regression?
 ```{r}
-#load glmnet and hdm
-library(hdm)
+#load glmnet and caret
+library(caret)
 library(glmnet)
 
-#Perform feature engineering (dplyr mutate etc etc)
-lasso_data<-test_data%>%mutate()
-
 #Split into outcome and exposure
-q5y<-lasso_data%>%select(dbrwt)
-q5x<-lasso_data%>%select(-dbrwt)
+q5y<-test_data%>%select(dbrwt)
+q5x<-test_data%>%select(-dbrwt)
+
+#If I wanted to have interactions between all my terms
+#q5x<-model.matrix(~ (tobacco + ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper)^2, data = q5x)
+#Because my computer would die, I do the following instead
+for (covariate in colnames(q5x)) {
+  if (covariate != "tobacco") {
+    interaction_term <- q5x$tobacco * q5x[[covariate]]
+    q5x[[paste("tobacco_", covariate, sep = "")]] <- interaction_term
+  }
+}
+#Add a polynomials
+q5x<-q5x%>%mutate(dmage2=dmage*dmage)
+
+#get everything as a numeric so I can apply scale
+q5x <- q5x[, sapply(q5x, is.numeric)]
+
+#Standardize data before double selection
+q5x <- scale(q5x)
+
 
 #use hdm's double selection command
 select_vars<-double_selection(q5x, q5y)
