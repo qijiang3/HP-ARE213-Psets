@@ -12,7 +12,7 @@
 
 clear all
 set more off
-
+set matsize 800
 cd "/Users/jaclynschess/Documents/All/Berkeley/Coursework/ARE213"
 *log close
 *log using pset1, replace
@@ -110,20 +110,20 @@ lung diabetes herpes chyper pre4000 wgain, grpvar(tobacco) replace ///
 Part 2
 **************************/
 *2a:
-summ dbrwt if tobacco==1
-summ dbrwt if tobacco==0
+
+ttest dbrwt, by(tobacco)
 
 *2b done on Overleaf
 /*************************
 Part 3
 **************************/
-local covars dmage ormoth mwhite mblack mothrace dmeduc dmar adequacy monpre nprevist isllb10 ///
+global covars dmage ormoth mwhite mblack mothrace dmeduc dmar adequacy monpre nprevist isllb10 ///
 	dgestat csex dplural anemia cardiac lung diabetes herpes chyper phyper
 
 
 *A:
 
-reg dbrwt tobacco `covars'
+reg dbrwt tobacco $covars
 
 
 *B: 
@@ -137,60 +137,58 @@ reg dbrwt dmage ormoth mwhite mblack dmeduc dmar nprevist anemia cardiac lung di
 
 *C: 
 
-reg dbrwt tobacco (`covars')##tobacco
+reg dbrwt tobacco ($covars)##tobacco
 
 
 *D: 
 reg dbrwt tobacco $covars omaps fmaps
 
-
 *E: 
 ssc install oaxaca
-oaxaca dbrwt $covars, by(tobacco) pooled
-*reg in just smoker
+*drop mothrace bc of collinearity
+oaxaca dbrwt dmage ormoth mwhite mblack dmeduc dmar adequacy monpre nprevist isllb10 ///
+	dgestat csex dplural anemia cardiac lung diabetes herpes chyper phyper, by(tobacco) pooled
+
 
 /*************************
 Part 4
 **************************/
 
+
 * a. propensity score
-global pscore cntocpop dmage ormoth dmeduc dmar adequacy nlbnl dlivord totord9 monpre ///
-nprevist isllb10 dfage orfath dfeduc dgestat csex dbrwt dplural omaps fmaps clingest ///
-anemia cardiac lung diabetes herpes chyper phyper pre4000 preterm alcohol drink5 wgain mwhite mblack mothrace 
 
-teffects psmatch (dbrwt) (tobacco $pscore), gen(match)  //is this what he's looking for for part a or part d
+logit tobacco $covars
+predict pscore
 
-* b. propensity score for treated and untreated 
-*predict ps0 ps1, ps //store propensity scores
-*predict y0 y1, po  //store potential outcomes
+* b. overlap
 
-//what are we looking for here?
-	
-	teffects overlap
-	//graph saved, shows overlap pattern
-	
+graph tw kdensity pscore if tobacco == 0 || kdensity pscore if tobacco == 1
+
 * c. balance 
-tebalance summarize //what is "sufficient" balance
+teffects psmatch (dbrwt) (tobacco $covars), gen(match1)
+tebalance summarize // matched difference in means are much smaller than those in unmatched
+estout r(table) using PSM, style(tex)
 	
 * d. Estimation using propensity score matching 
 
-teffects psmatch (dbrwt) (tobacco $pscore), gen(attmatch) atet
+teffects psmatch (dbrwt) (tobacco $covars), gen(attmatch) atet
 
 * e: Estimation using propensity score reweighting
 
-teffects ipw (dbrwt) (tobacco $pscore)
-teffects ipw (dbrwt) (tobacco $pscore), atet
+teffects ipw (dbrwt) (tobacco $covars)
+teffects ipw (dbrwt) (tobacco $covars), atet
 
 /*************************
 Part 5
 **************************/
 
 *a: Mixed methods ATE and ATT estimtion
-teffects aipw (dbrwt) (tobacco $pscore)
-teffects aipw (dbrwt) (tobacco $pscore), atet
+teffects ipwra (dbrwt) (tobacco $covars)
+teffects ipwra (dbrwt) (tobacco $covars), atet
 
 *b: Double selection LASSO (linear)
 dsregress dbrwt tobacco, controls($covars)
 
 
 log off
+
