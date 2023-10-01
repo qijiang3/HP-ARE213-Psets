@@ -137,7 +137,7 @@ There is a statistically significant difference across smoking vs nonsmoking mot
 b. Classify the variables in the dataset into different types depending on how they are potentially related to the treatment and the outcome; justify your choices and be explicit about the assumptions you are making.4 Use your classification to decide on the list of covariates you’ll keep for covariate adjustment for the rest of the problem set.
 ```{r}
 #Based on the above, we can generate a new object that has our outcome and all covariates
-test_data<-my_data%>%select(dbrwt, tobacco, ormoth, mrace3, dmage, dmeduc, dmar,adequacy, monpre, nprevist, isllb10, csex, dplural, anemia, cardiac, lung, diabetes, herpes, chyper, phyper, dgestat)
+test_data<-my_data%>%select(dbrwt, tobacco, ormoth, mrace3, dmage, dmeduc, dmar,adequacy, monpre, nprevist, isllb10, csex, dplural, anemia, cardiac, lung, diabetes, herpes, chyper, phyper)
 ```
 
 3. We will now investigate different methods based for covariate adjustment, starting from regression.
@@ -199,12 +199,6 @@ q3eATE <- mean(smokers_predict) - mean(nonsmokers_predict)
 
 #Next get ATT
 q3eATT <- mean(smokers$dbrwt - smokers_predict)
-
-library(oaxaca)
-#oaxaca package given team feedback on what this should be like
-oaxaca_results <- oaxaca(dbrwt ~ ormoth+mrace3+dmage+dmeduc+nlbnl+dlivord+totord9+dfage+orfath+dfeduc+pre4000+preterm+nprevist+isllb10 | tobacco, test_data)
-#get ATE and  ATT - not sure how to do that
-q3eATE<-oaxaca_results$reg$reg.pooled.2$tobacco
 ```
 4. Next on the list is the propensity score approach.
 a.Estimate the propensity score using a logit specification without nonlinear terms and interactions. Discuss which covariates appear most predictive of maternal smoking and whether this matches your expectation.
@@ -268,14 +262,12 @@ e. Estimate the ATE and ATT via propensity score reweighting. Include the formul
 #Use the WeightIt package
 library(WeightIt)
 
-weight_data<-weightit(tobacco~ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper, test_data, method="ps")
-
+#First ATE
+weight_data<-weightit(tobacco~ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper, test_data, method="ps", estimand="ATE")
 #reweighting
 weights<-weights(weight_data)
-
 #we add the weighted data as a column to test_data
 weighted_data<-test_data%>%mutate(weights=weights)
-
 #get ATE
 q4eATE <- weighted.mean(weighted_data$dbrwt[weighted_data$tobacco == 1], w = weights[weighted_data$tobacco == 1])- weighted.mean(weighted_data$dbrwt[weighted_data$tobacco == 0], w = weights[weighted_data$tobacco == 0])
 
@@ -283,17 +275,14 @@ q4eATE <- weighted.mean(weighted_data$dbrwt[weighted_data$tobacco == 1], w = wei
 weight_data<-weightit(tobacco~ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper, test_data, method="ps", estimand="ATT")
 #reweighting
 weights<-weights(weight_data)
-
 #we add the weighted data as a column to test_data
 weighted_data<-test_data%>%mutate(weights=weights)
-
 #flag observations by smoker/nonsmoker
 smoker_flag <- ifelse(weighted_data$tobacco == 1, 1, 0)
-
 #split data out into weighted data by smokers and nonsmokers
 weighted_dbrwt_smokers <- sum(weighted_data$dbrwt[smoker_flag == 1] * weights[smoker_flag == 1]) / sum(weights[smoker_flag == 1])
 weighted_dbrwt_nonsmokers <- sum(weighted_data$dbrwt[smoker_flag == 0] * weights[smoker_flag == 0]) / sum(weights[smoker_flag == 0])
-
+#get ATT
 q4eATT <- mean(weighted_dbrwt_smokers - weighted_dbrwt_nonsmokers)
 ```
 5. Finally, try doubly-robust methods
@@ -323,19 +312,21 @@ library(glmnet)
 
 #Split into outcome and exposure
 q5y<-test_data%>%select(dbrwt)
-q5x<-test_data%>%select(-dbrwt)
+q5d<-test_data%>%select(tobacco)
+q5x<-test_data%>%select(-dbrwt, tobacco)
 
 #If I wanted to have interactions between all my terms
 #q5x<-model.matrix(~ (tobacco + ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper)^2, data = q5x)
 #Because my computer would die, I do the following instead
 for (covariate in colnames(q5x)) {
-  if (covariate != "tobacco") {
-    interaction_term <- q5x$tobacco * q5x[[covariate]]
-    q5x[[paste("tobacco_", covariate, sep = "")]] <- interaction_term
+  if (covariate != "nprevist") {
+    interaction_term <- q5x$nprevist * q5x[[covariate]]
+    q5x[[paste("nprevist", covariate, sep = "")]] <- interaction_term
   }
 }
-#Add a polynomial for age
-q5x<-q5x%>%mutate(dmage2=dmage*dmage)
+#Add a polynomial for age and nprevisit
+q5x<-q5x%>%mutate(dmage2=dmage*dmage,
+                  nprevisit2=nprevist*nprevist)
 
 #get everything as a numeric so I can apply scale
 q5x <- q5x[, sapply(q5x, is.numeric)]
@@ -343,25 +334,27 @@ q5x <- q5x[, sapply(q5x, is.numeric)]
 #Standardize data before double selection
 q5x <- scale(q5x)
 
-#convert y into a numeric vs a one column dataframe
+#convert d and y into a numeric vs a one column dataframe
 q5y <- q5y[[1]]
+q5d <- q5d[[1]]
 
-#run glmnet to get best value for lambda
-lasso_model<-cv.glmnet(q5x, q5y, alpha=1)
-best_lambda<-lasso_model$lambda.min
+#LASSO Y on X and get relevant coefficients
+lasso1<-cv.glmnet(q5x, q5y, alpha=1)
+best_lambda1<-lasso1$lambda.min
+lasso_coef1<-coef(lasso1, s=best_lambda1)
 
-#fit model with best lambda
-best_lasso_model<-glmnet(q5x, q5y, alpha=1, lambda=best_lambda)
-lasso_coef <- coef(best_lasso_model, s=best_lambda)
+#LASSO D on X and get relevant coefficients
+lasso2<-cv.glmnet(q5x, q5d, alpha=1)
+best_lambda2<-lasso2$lambda.min
+lasso_coef2<-coef(lasso2, s=best_lambda2)
 
-# Filter out nonzero coefficients (AA: added debug for exluding the intercept because kept getting an issue with subscript out of bounds)
-nonzero_coef <- which(lasso_coef[-1, ] != 0)  
-select_X <- q5x[, nonzero_coef]
+#Get the covariates that are overlapping
+union_covariates <- intersect(
+  rownames(lasso_coef1)[-1], 
+  rownames(lasso_coef2)[-1]  
+)
 
-#then get linear model? Is this right?
-ds_model<-lm(q5y~select_X)
-
-#get ATE and ATT
+#regress
 ```
 
 6. Compare the estimates and standard errors between regression adjustment methods, propensity score methods, and doubly robust methods you have used. Concisely and coherently summarize your results above providing some intuition. Write it like you would the conclusion of a paper. In this summary, describe whether you think your best estimate of the effects of smoking is credibly identified; state why or why not.
