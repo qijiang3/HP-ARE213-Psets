@@ -360,6 +360,8 @@ select_X <- q5x[, nonzero_coef]
 
 #then get linear model? Is this right?
 ds_model<-lm(q5y~select_X)
+
+#get ATE and ATT
 ```
 
 6. Compare the estimates and standard errors between regression adjustment methods, propensity score methods, and doubly robust methods you have used. Concisely and coherently summarize your results above providing some intuition. Write it like you would the conclusion of a paper. In this summary, describe whether you think your best estimate of the effects of smoking is credibly identified; state why or why not.
