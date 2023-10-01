@@ -359,8 +359,8 @@ select_x<- q5x[, union_covariates]
 postlasso_data<-data.frame(q5y, q5d, select_x)
 postlasso_model<-lm(q5y~., postlasso_data)
 
+#Assume this is the ATE?
 lasso_ATE <- coef(postlasso_model)["q5d"]
-lasso_ATT <- coef(postlasso_model)["q5d"] + sum(coef(postlasso_model)[union_covariates])
 ```
 
 6. Compare the estimates and standard errors between regression adjustment methods, propensity score methods, and doubly robust methods you have used. Concisely and coherently summarize your results above providing some intuition. Write it like you would the conclusion of a paper. In this summary, describe whether you think your best estimate of the effects of smoking is credibly identified; state why or why not.
