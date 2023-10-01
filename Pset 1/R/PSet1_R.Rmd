@@ -280,8 +280,21 @@ weighted_data<-test_data%>%mutate(weights=weights)
 q4eATE <- weighted.mean(weighted_data$dbrwt[weighted_data$tobacco == 1], w = weights[weighted_data$tobacco == 1])- weighted.mean(weighted_data$dbrwt[weighted_data$tobacco == 0], w = weights[weighted_data$tobacco == 0])
 
 #Next get ATT
+weight_data<-weightit(tobacco~ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper, test_data, method="ps", estimand="ATT")
+#reweighting
+weights<-weights(weight_data)
 
+#we add the weighted data as a column to test_data
+weighted_data<-test_data%>%mutate(weights=weights)
 
+#flag observations by smoker/nonsmoker
+smoker_flag <- ifelse(weighted_data$tobacco == 1, 1, 0)
+
+#split data out into weighted data by smokers and nonsmokers
+weighted_dbrwt_smokers <- sum(weighted_data$dbrwt[smoker_flag == 1] * weights[smoker_flag == 1]) / sum(weights[smoker_flag == 1])
+weighted_dbrwt_nonsmokers <- sum(weighted_data$dbrwt[smoker_flag == 0] * weights[smoker_flag == 0]) / sum(weights[smoker_flag == 0])
+
+q4eATT <- mean(weighted_dbrwt_smokers - weighted_dbrwt_nonsmokers)
 ```
 5. Finally, try doubly-robust methods
 a. Estimate the ATE and ATT using one the “mixed methods”: regression adjustment combined with propensity score blocking, matching, or reweighting.
