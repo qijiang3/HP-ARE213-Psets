@@ -195,10 +195,10 @@ nonsmokers_predict<-predict(nonsmokers_model)
 smokers_predict<-predict(smokers_model)
 
 #First get ATE using these predicted values
-q3eATE <- mean(smokers_predict) - mean(nonsmokers_predict)
+oaxaca_ATE <- mean(smokers_predict) - mean(nonsmokers_predict)
 
 #Next get ATT
-q3eATT <- mean(smokers$dbrwt - smokers_predict)
+oaxaca_ATT <- mean(smokers$dbrwt - smokers_predict)
 ```
 4. Next on the list is the propensity score approach.
 a.Estimate the propensity score using a logit specification without nonlinear terms and interactions. Discuss which covariates appear most predictive of maternal smoking and whether this matches your expectation.
@@ -254,8 +254,8 @@ match_data<-match.data(match_data) #syntax is clumsy here - sorry!
 match_treated <- subset(match_data, smoking == 1)
 match_untreated <- subset(match_data, smoking == 0)
 
-q4dATE <- mean(match_treated$birthweight) - mean(match_untreated$birthweight)
-q4dATT <- mean(match_treated$birthweight-match_untreated$birthweight)
+match_ATE <- mean(match_treated$birthweight) - mean(match_untreated$birthweight)
+match_ATT <- mean(match_treated$birthweight-match_untreated$birthweight)
 ```
 e. Estimate the ATE and ATT via propensity score reweighting. Include the formulas you used.
 ```{r}
@@ -269,7 +269,7 @@ weights<-weights(weight_data)
 #we add the weighted data as a column to test_data
 weighted_data<-test_data%>%mutate(weights=weights)
 #get ATE
-q4eATE <- weighted.mean(weighted_data$dbrwt[weighted_data$tobacco == 1], w = weights[weighted_data$tobacco == 1])- weighted.mean(weighted_data$dbrwt[weighted_data$tobacco == 0], w = weights[weighted_data$tobacco == 0])
+reweight_ATE <- weighted.mean(weighted_data$dbrwt[weighted_data$tobacco == 1], w = weights[weighted_data$tobacco == 1])- weighted.mean(weighted_data$dbrwt[weighted_data$tobacco == 0], w = weights[weighted_data$tobacco == 0])
 
 #Next get ATT
 weight_data<-weightit(tobacco~ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper, test_data, method="ps", estimand="ATT")
@@ -283,7 +283,7 @@ smoker_flag <- ifelse(weighted_data$tobacco == 1, 1, 0)
 weighted_dbrwt_smokers <- sum(weighted_data$dbrwt[smoker_flag == 1] * weights[smoker_flag == 1]) / sum(weights[smoker_flag == 1])
 weighted_dbrwt_nonsmokers <- sum(weighted_data$dbrwt[smoker_flag == 0] * weights[smoker_flag == 0]) / sum(weights[smoker_flag == 0])
 #get ATT
-q4eATT <- mean(weighted_dbrwt_smokers - weighted_dbrwt_nonsmokers)
+reweight_ATT <- mean(weighted_dbrwt_smokers - weighted_dbrwt_nonsmokers)
 ```
 5. Finally, try doubly-robust methods
 a. Estimate the ATE and ATT using one the “mixed methods”: regression adjustment combined with propensity score blocking, matching, or reweighting.
@@ -313,7 +313,7 @@ library(glmnet)
 #Split into outcome and exposure
 q5y<-test_data%>%select(dbrwt)
 q5d<-test_data%>%select(tobacco)
-q5x<-test_data%>%select(-dbrwt, tobacco)
+q5x<-test_data%>%select(-dbrwt, -tobacco)
 
 #If I wanted to have interactions between all my terms
 #q5x<-model.matrix(~ (tobacco + ormoth + mrace3 + dmage + dmeduc + dmar + adequacy + monpre + nprevist + isllb10 + csex + dplural + anemia + cardiac + lung + diabetes + herpes + chyper + phyper)^2, data = q5x)
@@ -353,8 +353,14 @@ union_covariates <- intersect(
   rownames(lasso_coef1)[-1], 
   rownames(lasso_coef2)[-1]  
 )
+select_x<- q5x[, union_covariates]
 
-#regress
+#Get everything in a dataset
+postlasso_data<-data.frame(q5y, q5d, select_x)
+postlasso_model<-lm(q5y~., postlasso_data)
+
+lasso_ATE <- coef(postlasso_model)["q5d"]
+lasso_ATT <- coef(postlasso_model)["q5d"] + sum(coef(postlasso_model)[union_covariates])
 ```
 
 6. Compare the estimates and standard errors between regression adjustment methods, propensity score methods, and doubly robust methods you have used. Concisely and coherently summarize your results above providing some intuition. Write it like you would the conclusion of a paper. In this summary, describe whether you think your best estimate of the effects of smoking is credibly identified; state why or why not.
